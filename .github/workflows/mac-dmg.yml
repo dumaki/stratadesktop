@@ -1,0 +1,63 @@
+# Builds Strata Desktop for Apple Silicon Macs (a DMG), with opencode compiled from source for darwin-arm64.
+# A DMG can only be made on macOS, so this runs on GitHub's macOS runner. Start it from the Actions tab
+# ("Run workflow") or by pushing a tag like v1.0.0; the DMG is attached to the run as an artifact.
+name: Mac DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      opencode_ref:
+        description: "opencode tag or branch to build (github.com/anomalyco/opencode)"
+        default: "v1.19.1"
+  push:
+    tags: ["v*"]
+
+jobs:
+  dmg:
+    runs-on: macos-latest # Apple Silicon (arm64)
+    env:
+      OPENCODE_REF: ${{ inputs.opencode_ref || 'v1.19.1' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the opencode source
+        uses: actions/checkout@v4
+        with:
+          repository: anomalyco/opencode
+          ref: ${{ env.OPENCODE_REF }}
+          path: opencode-src
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build opencode for darwin-arm64
+        working-directory: opencode-src
+        run: |
+          bun install
+          cd packages/opencode
+          OPENCODE_VERSION="${OPENCODE_REF#v}" OPENCODE_CHANNEL=latest bun run build --single
+
+      - name: Bundle opencode into the app
+        run: |
+          bin=$(find opencode-src/packages/opencode/dist -path '*darwin-arm64*/bin/opencode' -type f | head -1)
+          test -n "$bin" || { echo "opencode binary not found"; exit 1; }
+          "$bin" --version
+          mkdir -p app/resources/opencode
+          cp "$bin" app/resources/opencode/opencode
+          chmod +x app/resources/opencode/opencode
+
+      - name: Build the DMG
+        working-directory: app
+        run: |
+          npm ci
+          npx electron-builder --mac dmg --arm64 --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StrataDesktop-mac-arm64
+          path: app/dist/*.dmg

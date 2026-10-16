@@ -1,0 +1,13 @@
+# Strata and the model live on the PC, not in the repo
+Strata/
+Strata-data/
+src/
+*.zip
+*.log
+
+# build output and dependencies
+app/node_modules/
+app/dist/
+# the bundled opencode binary is built per platform (locally on Windows, in CI on macOS)
+app/resources/opencode/opencode
+app/resources/opencode/opencode.exe

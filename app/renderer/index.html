@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Strata Desktop</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src http: https:" />
+    <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <nav id="sidebar">
+      <div class="brand"><span class="logo">◆</span> Strata Desktop</div>
+      <button class="tab active" data-tab="engine"><span class="ico">⚙</span>Engine</button>
+      <button class="tab" data-tab="chat"><span class="ico">💬</span>Chat &amp; Monitor</button>
+      <button class="tab" data-tab="agent"><span class="ico">⌘</span>Coding Agent</button>
+      <button class="tab" data-tab="tui"><span class="ico">›_</span>Agent Terminal</button>
+      <button class="tab" data-tab="settings"><span class="ico">☰</span>Settings</button>
+      <div class="spacer"></div>
+      <div class="status-block">
+        <div class="status-row"><span id="strata-dot" class="dot off"></span><span>Strata</span><span id="strata-label" class="muted">offline</span></div>
+        <div class="status-row"><span id="agent-dot" class="dot off"></span><span>Agent</span><span id="agent-label" class="muted">stopped</span></div>
+        <div id="strata-speed" class="muted small"></div>
+      </div>
+    </nav>
+
+    <main>
+      <!-- Engine: setup.py / START-HERE.bat in a real console -->
+      <section id="tab-engine" class="panel active">
+        <header class="toolbar">
+          <h2>Strata engine</h2>
+          <span class="remote-only muted small">Remote:</span>
+          <span class="remote-only" id="remote-host"></span>
+          <button class="remote-only" id="btn-remote-reload">⟳ Reload monitor</button>
+          <button class="remote-only" id="btn-remote-settings" data-goto="settings">Change host…</button>
+          <span class="local-only toolbar-group">
+          <button id="btn-strata-start" class="primary" title="START-HERE.bat: installs on the first run, then starts the model">▶ Start</button>
+          <button id="btn-strata-setup" title="SETUP.bat: install another model or change settings">Setup / change model</button>
+          <button id="btn-strata-update" title="UPDATE.bat: update Strata without starting it">Update</button>
+          <button id="btn-strata-check" title="Only check this PC (GPU, RAM, disk)">Check PC</button>
+          <button id="btn-strata-bench" title="BENCH.bat: measure speed on this PC">Benchmark</button>
+          <button id="btn-strata-stop" class="danger" disabled>■ Stop</button>
+          </span>
+          <div class="grow"></div>
+          <input class="local-only" id="strata-args" placeholder="extra options, e.g. --family coder --yes" title="Passed to Strata's start script" />
+          <button class="local-only" id="btn-strata-folder" title="Open the Strata folder">📁</button>
+        </header>
+        <div class="remote-only remote-card">
+          <div><span class="muted">Status</span><b id="remote-state">connecting…</b></div>
+          <div><span class="muted">Model</span><b id="remote-model">-</b></div>
+          <div><span class="muted">Context</span><b id="remote-ctx">-</b></div>
+          <div><span class="muted">Activity</span><b id="remote-activity">-</b></div>
+          <div><span class="muted">API key</span><b id="remote-key">-</b></div>
+        </div>
+        <div class="remote-only hint">Strata runs on the remote PC: set it up, start, stop and update it there. This tab shows its status and its Monitor; Chat and the coding agent use it.</div>
+        <div class="remote-only viewwrap">
+          <div class="placeholder" id="remote-placeholder"><h3>Can't reach the remote Strata</h3><p id="remote-why">Check the host in Settings, that Strata is running on that PC with <code>--host 0.0.0.0</code>, and that its port is reachable (firewall or Tailscale).</p></div>
+          <webview id="monitor-view" class="hidden" partition="persist:strata"></webview>
+        </div>
+        <div class="hint local-only" id="engine-hint">Press <b>Start</b>. The first run installs Python, the engine and the model (about 70 GB) and asks a few questions: click the console and answer them exactly as in a terminal (Enter takes the recommended answer). While the model loads your PC can be slow for 1-3 minutes.</div>
+        <div class="term local-only" id="term-strata"></div>
+      </section>
+
+      <!-- Chat & Monitor: Strata's own web app -->
+      <section id="tab-chat" class="panel">
+        <header class="toolbar">
+          <h2>Chat &amp; Monitor</h2>
+          <button id="btn-chat-reload">⟳ Reload</button>
+          <button id="btn-chat-monitor">Monitor</button>
+          <button id="btn-chat-browser">Open in browser</button>
+          <div class="grow"></div>
+          <span class="muted small" id="chat-url"></span>
+        </header>
+        <div class="viewwrap">
+          <div class="placeholder" id="chat-placeholder">
+            <h3>Strata is not running</h3>
+            <p id="chat-why">Start the engine on the <b>Engine</b> tab. The chat opens here as soon as the model is ready.</p>
+            <button class="primary" data-goto="engine">Go to Engine</button>
+          </div>
+          <webview id="chat-view" class="hidden" partition="persist:strata"></webview>
+        </div>
+      </section>
+
+      <!-- Coding agent: opencode's web UI from `opencode serve` -->
+      <section id="tab-agent" class="panel">
+        <header class="toolbar">
+          <h2>Coding agent</h2>
+          <button id="btn-agent-start" class="primary">▶ Start</button>
+          <button id="btn-agent-restart">⟳ Restart</button>
+          <button id="btn-agent-stop" class="danger">■ Stop</button>
+          <button id="btn-agent-log">Server log</button>
+          <button id="btn-agent-browser">Open in browser</button>
+          <div class="grow"></div>
+          <span class="muted small">Project:</span>
+          <button id="btn-agent-project" class="path" title="The folder opencode works in"></button>
+        </header>
+        <div class="viewwrap">
+          <div class="placeholder" id="agent-placeholder">
+            <h3>The coding agent is not running</h3>
+            <p>Start it to open opencode here. It uses the Strata model (provider <b>Strata (local)</b> or <b>Strata (remote)</b>) and keeps every other provider you set up in opencode.</p>
+            <button class="primary" id="btn-agent-start2">▶ Start coding agent</button>
+          </div>
+          <webview id="agent-view" class="hidden" partition="persist:opencode"></webview>
+          <pre id="agent-log" class="hidden"></pre>
+        </div>
+      </section>
+
+      <!-- opencode's full terminal UI, for everything the web UI doesn't do -->
+      <section id="tab-tui" class="panel">
+        <header class="toolbar">
+          <h2>Agent terminal</h2>
+          <button id="btn-tui-start" class="primary">▶ opencode</button>
+          <button id="btn-tui-shell">Shell</button>
+          <button id="btn-tui-stop" class="danger" disabled>■ Stop</button>
+          <div class="grow"></div>
+          <input id="tui-args" placeholder="opencode arguments, e.g. run &quot;fix the tests&quot;" />
+        </header>
+        <div class="hint">opencode's own terminal interface, with every command and keybinding, running inside the app in your project folder. <span id="shell-name">The shell button</span> opens a shell with Strata already set up for opencode.</div>
+        <div class="term" id="term-tui"></div>
+      </section>
+
+      <section id="tab-settings" class="panel">
+        <header class="toolbar"><h2>Settings</h2></header>
+        <form id="settings" class="settings">
+          <fieldset class="mode">
+            <legend>Where Strata runs</legend>
+            <label class="check"><input type="radio" name="mode" value="local" /> On this computer <small>(local: the app sets up, starts and stops Strata)</small></label>
+            <label class="check"><input type="radio" name="mode" value="remote" /> On another computer <small>(remote: use a Strata server elsewhere, for example your Windows PC)</small></label>
+          </fieldset>
+          <label class="remote-only">Remote Strata address <small>(e.g. http://win-pc:8080, a Tailscale name like http://win-pc.tailnet-name.ts.net:8080, or an IP)</small>
+            <input name="remoteUrl" placeholder="http://win-pc:8080" />
+          </label>
+          <label class="local-only">Strata folder <small id="strata-dir-hint">(the folder with START-HERE.bat; the model goes to Strata-data next to it)</small>
+            <div class="row"><input name="strataDir" /><button type="button" data-pick="strataDir">Browse…</button></div>
+          </label>
+          <label>Project folder for the coding agent
+            <div class="row"><input name="projectDir" /><button type="button" data-pick="projectDir">Browse…</button></div>
+          </label>
+          <div class="row2">
+            <label class="local-only">Strata port <input name="port" type="number" min="1" max="65535" /></label>
+            <label>Coding agent port <input name="opencodePort" type="number" min="1" max="65535" /></label>
+          </div>
+          <label>Strata API key <small>(only needed if Strata was set up with --api-key; always use one for a remote server)</small>
+            <input name="apiKey" type="password" autocomplete="off" />
+          </label>
+          <label>opencode program <small>(empty = the one bundled with this app)</small>
+            <div class="row"><input name="opencodePath" /><button type="button" data-pickfile="opencodePath">Browse…</button></div>
+          </label>
+          <label class="check"><input type="checkbox" name="strataDefaultModel" /> Make the Strata model opencode's default model</label>
+          <label class="check local-only"><input type="checkbox" name="autoStartStrata" /> Start Strata when the app opens</label>
+          <label class="check"><input type="checkbox" name="autoStartAgent" /> Start the coding agent when the app opens</label>
+          <div class="row"><button class="primary" type="submit">Save</button><span id="settings-saved" class="muted"></span></div>
+          <p class="muted small" id="about"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
+    <script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

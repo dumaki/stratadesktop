@@ -1,0 +1,46 @@
+{
+  "name": "strata-desktop",
+  "productName": "Strata Desktop",
+  "version": "1.0.0",
+  "description": "Desktop app for the Strata local model engine and the opencode coding agent",
+  "main": "main.js",
+  "author": "hughe",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable nsis",
+    "dist:mac": "electron-builder --mac dmg --arm64"
+  },
+  "dependencies": {
+    "@lydell/node-pty": "1.1.0",
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/xterm": "5.5.0"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "local.strata.desktop",
+    "productName": "Strata Desktop",
+    "files": ["main.js", "preload.js", "renderer/**", "node_modules/**"],
+    "asarUnpack": ["node_modules/@lydell/**"],
+    "afterPack": "build/adhoc-sign.js",
+    "win": {
+      "target": ["portable", "nsis"],
+      "icon": "build/icon.png",
+      "extraResources": [{ "from": "resources/opencode", "to": "opencode", "filter": ["opencode.exe"] }]
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "extraResources": [{ "from": "resources/opencode", "to": "opencode", "filter": ["opencode"] }]
+    },
+    "dmg": { "artifactName": "StrataDesktop-${version}-${arch}.dmg" },
+    "portable": { "artifactName": "StrataDesktop-${version}-portable.exe" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "artifactName": "StrataDesktop-${version}-setup.exe" },
+    "directories": { "output": "dist" }
+  }
+}
