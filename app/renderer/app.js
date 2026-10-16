@@ -5,6 +5,8 @@ let strataBase = "" // http://127.0.0.1:8080 locally, the remote host in remote 
 let platform = "win32"
 let strataReady = false
 let agentReady = false
+// local mode, and Strata answers on this PC although the app did not start it (for example a startup task)
+let external = false
 
 // ---- tabs ----
 function showTab(name) {
@@ -184,6 +186,8 @@ $("#btn-tui-stop").onclick = () => desk.termStop("tui", false)
 function refreshButtons() {
   const s = terms.strata.running
   for (const b of ["start", "setup", "update", "check", "bench"]) $("#btn-strata-" + b).disabled = s
+  // a Strata started elsewhere holds the port and the engine files: starting, setting up or updating would clash
+  if (external) for (const b of ["start", "setup", "update", "bench"]) $("#btn-strata-" + b).disabled = true
   $("#btn-strata-stop").disabled = !s
   $("#btn-tui-start").disabled = $("#btn-tui-shell").disabled = terms.tui.running
   $("#btn-tui-stop").disabled = !terms.tui.running
@@ -194,7 +198,9 @@ const monitorView = $("#monitor-view")
 let monitorLoaded = false
 $("#btn-remote-reload").onclick = () => strataReady && monitorView.loadURL(strataUrl() + "#monitor")
 function updateRemote(h, st) {
-  if (!isRemote()) return
+  if (!isRemote() && !external) return
+  $("#remote-placeholder").querySelector("h3").textContent = isRemote() ? "Can't reach the remote Strata" : "The model is loading"
+  $("#remote-why").style.display = isRemote() ? "" : "none"
   const ready = !!(h && h.loaded !== false)
   $("#remote-state").textContent = !h ? "unreachable" : ready ? "ready" : "loading the model"
   $("#remote-model").textContent = (h && h.model) || "-"
@@ -246,6 +252,12 @@ async function pollStrata() {
     $("#strata-speed").textContent =
       (isRemote() ? "remote · " : "") + (h.model ? h.model + " · " : "") + (st && st.busy ? `busy${st.tokens_per_s ? ` · ${st.tokens_per_s} tok/s` : ""}` : "idle")
   } else $("#strata-speed").textContent = ""
+  const ext = !isRemote() && !!h && !terms.strata.running
+  if (ext !== external) {
+    external = ext
+    document.body.classList.toggle("external", ext)
+    refreshButtons()
+  }
   updateRemote(h, st)
 }
 
@@ -281,6 +293,7 @@ function fillSettings() {
 function applyMode() {
   document.body.classList.toggle("remote", isRemote())
   $("#remote-host").textContent = strataBase || "(no address set)"
+  document.body.classList.toggle("external", external && !isRemote())
   $("#chat-why").innerHTML = isRemote()
     ? "Can't reach the remote Strata yet. Check the address and key in <b>Settings</b> and that Strata is running on that PC."
     : "Start the engine on the <b>Engine</b> tab. The chat opens here as soon as the model is ready."
